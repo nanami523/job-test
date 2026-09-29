@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>考試倒數計畫</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#FBF8F1;--fg:#26302B;--mut:#5B6459;--card:#fff;--line:#E7E1D2;--acc:#FF7A5C;--ok:#2e9e5b;--okbg:#e6f4ea;--bad:#d64545;--badbg:#fdecec;--tod:#fff6d6}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15171a;--fg:#e8e8e8;--mut:#9aa0a6;--card:#1f2226;--line:#33373d;--acc:#ff9a80;--ok:#5cc98a;--okbg:#1b3326;--bad:#ff7a7a;--badbg:#3a2020;--tod:#3b3416}}
+:root[data-theme="dark"]{--bg:#15171a;--fg:#e8e8e8;--mut:#9aa0a6;--card:#1f2226;--line:#33373d;--acc:#ff9a80;--ok:#5cc98a;--okbg:#1b3326;--bad:#ff7a7a;--badbg:#3a2020;--tod:#3b3416}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.6 "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif}
+main{max-width:980px;margin:0 auto;padding:16px}
+h1{font:900 26px/1.3 "Noto Serif TC",serif;margin:0 0 12px;padding-bottom:10px;border-bottom:3px solid var(--fg)}
+#sync{font:12px "Noto Sans TC",sans-serif;color:var(--mut);margin:-6px 0 10px}
+h2{font:700 16px "Noto Serif TC",serif;margin:20px 0 8px}
+.card{background:var(--card);border:2px solid var(--fg);border-radius:4px;padding:14px;box-shadow:0 2px 0 rgba(38,48,43,.08)}
+.hero{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.big{font-size:52px;font-weight:700;line-height:1;color:var(--acc)}
+.mut{color:var(--mut);font-size:13px}
+.bars{flex:1;min-width:220px;display:grid;gap:8px}
+.bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ok)}
+.row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border:0}
+.row input{width:20px;height:20px;flex:none}
+.row.done span{text-decoration:line-through;color:var(--mut)}
+.tag{font-size:12px;color:var(--bad);background:var(--badbg);border-radius:6px;padding:1px 6px;flex:none}
+.scroll{overflow-x:auto}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(92px,1fr));gap:4px;min-width:660px}
+.hd{text-align:center;font-size:12px;color:var(--mut)}
+.c{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:4px 5px;min-height:96px;font-size:11.5px}
+.c.off{opacity:.4;min-height:0}
+.c.today{background:var(--tod);border-color:var(--acc)}
+.c.full{background:var(--okbg)}
+.c.late{background:var(--badbg)}
+.c.exam{background:var(--acc);color:#fff;text-align:center;font-weight:700}
+.dn{font-weight:700;margin-bottom:2px}
+.c label{display:flex;gap:3px;align-items:flex-start;line-height:1.3;margin:2px 0}
+.c input{width:14px;height:14px;margin:1px 0 0;flex:none}
+.c label.done{color:var(--mut);text-decoration:line-through}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:8px;padding:6px 12px;cursor:pointer}
+</style>
+</head>
+<body>
+<main>
+<p class="mut" style="margin:0 0 8px"><a href="./" style="color:inherit">← 回葵花寶典首頁</a></p>
+<h1>📚 考試倒數計畫　<span class="mut">考試日 115/11/8（2026-11-08）</span></h1>
+<div id="sync">同步狀態：連線中…</div>
+<div class="card hero" id="hero"></div>
+<h2 id="oh"></h2>
+<div class="card" id="over"></div>
+<h2>今日待辦</h2>
+<div class="card" id="today"></div>
+<h2>行事曆（含假日，勾選後自動儲存在此瀏覽器）</h2>
+<div class="scroll"><div class="cal" id="cal"></div></div>
+<p class="mut">未完成的項目會自動累積到「累積未完成」，術科解會依序遞補到最近一個沒念的梯次。資料存在這台裝置的瀏覽器內，請用同一個瀏覽器開啟。</p>
+<button id="reset">清除所有勾選</button>
+</main>
+<script>
+var EXAM=new Date(2026,10,8),SK='examplan_v1';
+function p2(n){return n<10?'0'+n:''+n}
+function fmt(d){return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())}
+function D(s){var a=s.split('-');return new Date(+a[0],a[1]-1,+a[2])}
+var WEEKS=[['2026-09-29','2026-10-04',75],['2026-10-05','2026-10-11',191],['2026-10-12','2026-10-18',299],['2026-10-19','2026-10-25',413],['2026-10-26','2026-11-01',531],['2026-11-02','2026-11-07',612]];
+var days=[],prev=0;
+WEEKS.forEach(function(w){var s=D(w[0]),e=D(w[1]),n=Math.round((e-s)/864e5)+1,base=prev;
+ for(var i=0;i<n;i++){var d=new Date(s);d.setDate(s.getDate()+i);var end=base+Math.round((w[2]-base)*(i+1)/n);
+  days.push({d:fmt(d),ps:prev+1,pe:end,shu:days.length%2===0});prev=end}});
+var SEQ=[],CN=['一','二','三'];
+(function(){SEQ.push('115年第二梯','115年第一梯');for(var y=114;y>=108;y--)for(var t=2;t>=0;t--)SEQ.push(y+'年第'+CN[t]+'梯')})();
+var st={done:{}},dbDoc=null,lastJ='{}';
+try{var r=localStorage.getItem(SK);if(r)st=JSON.parse(r)}catch(e){}
+function sync(t){var e=document.getElementById('sync');if(e)e.textContent='同步狀態：'+t}
+var wt=null,busy=false,dirty=false;
+function pin(){try{return localStorage.getItem('examplan_pin')||''}catch(e){return''}}
+function api(m,body){return fetch('/api/progress',{method:m,headers:{'Content-Type':'application/json','x-pin':pin()},body:body?JSON.stringify(body):undefined}).then(function(r){
+ if(r.status===401){var p=prompt('請輸入密碼');if(p===null)throw 0;try{localStorage.setItem('examplan_pin',p)}catch(e){}return api(m,body)}
+ if(!r.ok)throw 0;return r.json()})}
+function push(){dirty=true;clearTimeout(wt);wt=setTimeout(flush,400)}
+function flush(){if(busy||!dirty)return;busy=true;dirty=false;
+ api('PUT',{done:st.done}).then(function(){sync('已同步 ☁️')}).catch(function(){sync('同步失敗，僅存本機')}).then(function(){busy=false;if(dirty)flush()})}
+function save(){try{localStorage.setItem(SK,JSON.stringify(st))}catch(e){}push()}
+function pull(){if(dirty||busy)return;api('GET').then(function(d){
+ if(d.empty){if(Object.keys(st.done).length)push();else sync('已同步 ☁️');return}
+ if(JSON.stringify(d.done)!==JSON.stringify(st.done)){st.done=d.done;try{localStorage.setItem(SK,JSON.stringify(st))}catch(e){}render()}
+ sync('已同步 ☁️')}).catch(function(){sync('連線失敗，僅存本機')})}
+function initSync(){pull();setInterval(pull,20000);document.addEventListener('visibilitychange',function(){if(!document.hidden)pull()})}
+function short(l){return l.replace('年第','').replace('梯','')}
+function calc(){var used={};days.forEach(function(x){var v=st.done[x.d+'|s'];if(v)used[v]=1});
+ var q=SEQ.filter(function(l){return!used[l]}),i=0,m={};
+ days.forEach(function(x){if(!x.shu)return;var v=st.done[x.d+'|s'];m[x.d]=v||q[i++]});return m}
+function chk(k,label,lab,cls){var on=!!st.done[k];return '<input type="checkbox" data-k="'+k+'" data-l="'+(lab||'')+'"'+(on?' checked':'')+'>'}
+function items(x,sm){var o=[];o.push(['b','課本 p.'+x.ps+'–'+x.pe,'書 '+x.ps+'–'+x.pe,'']);
+ o.push(['q','學科 80 題','題 80','']);if(x.shu)o.push(['s','術科解 '+sm[x.d],'術 '+short(sm[x.d]),sm[x.d]]);return o}
+function render(){
+ var sm=calc(),now=new Date(),ts=fmt(now),td=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+ var left=Math.round((EXAM-td)/864e5);
+ var pg=0,qn=0,sn=0,tot=0;
+ days.forEach(function(x){if(st.done[x.d+'|b'])pg=Math.max(pg,x.pe);if(st.done[x.d+'|q'])qn++;if(st.done[x.d+'|s'])sn++});
+ var tq=days.length,ts_=days.filter(function(x){return x.shu}).length;
+ document.getElementById('hero').innerHTML='<div><div class="big">'+(left>=0?left:0)+'</div><div class="mut">天後考試（含假日）</div></div><div class="bars">'+
+  bar('課本進度 '+pg+' / 612 頁',pg/612)+bar('學科刷題 '+qn+' / '+tq+' 天（每天80題）',qn/tq)+bar('術科解 '+sn+' / '+ts_+' 梯',sn/ts_)+'</div>';
+ var ov='',oc=0;
+ days.forEach(function(x){if(x.d>=ts)return;items(x,sm).forEach(function(t){if(st.done[x.d+'|'+t[0]])return;oc++;
+  ov+='<div class="row"><input type="checkbox" data-k="'+x.d+'|'+t[0]+'" data-l="'+t[3]+'"><span class="tag">'+x.d.slice(5).replace('-','/')+'</span><span>'+t[1]+'</span></div>'})});
+ document.getElementById('oh').textContent='累積未完成（'+oc+'）';
+ document.getElementById('over').innerHTML=oc?ov:'<span class="mut">沒有積欠，太棒了 🎉</span>';
+ var tx=days.filter(function(x){return x.d===ts})[0],h='';
+ if(tx)items(tx,sm).forEach(function(t){var on=!!st.done[tx.d+'|'+t[0]];h+='<div class="row'+(on?' done':'')+'"><input type="checkbox" data-k="'+tx.d+'|'+t[0]+'" data-l="'+t[3]+'"'+(on?' checked':'')+'><span>'+t[1]+'</span></div>'});
+ else h=ts>'2026-11-08'?'<span class="mut">考試已結束</span>':ts===fmt(EXAM)?'<b>今天就是考試日，加油！🎯</b>':'<span class="mut">今天沒有排程</span>';
+ document.getElementById('today').innerHTML=h;
+ var c='';['日','一','二','三','四','五','六'].forEach(function(w){c+='<div class="hd">'+w+'</div>'});
+ var cur=D('2026-09-27'),map={};days.forEach(function(x){map[x.d]=x});
+ for(var i=0;i<42;i++){var k=fmt(cur),x=map[k],lab=(cur.getDate()===1?(cur.getMonth()+1)+'/1':cur.getDate());
+  if(k===fmt(EXAM)){c+='<div class="c exam">'+(cur.getMonth()+1)+'/'+cur.getDate()+'<br>🎯 考試日</div>'}
+  else if(!x){c+='<div class="c off"><div class="dn">'+lab+'</div></div>'}
+  else{var it=items(x,sm),all=it.every(function(t){return st.done[x.d+'|'+t[0]]}),cl='c';
+   if(k===ts)cl+=' today';else if(all)cl+=' full';else if(k<ts)cl+=' late';
+   c+='<div class="'+cl+'"><div class="dn">'+lab+'</div>'+it.map(function(t){var on=!!st.done[x.d+'|'+t[0]];
+    return '<label class="'+(on?'done':'')+'"><input type="checkbox" data-k="'+x.d+'|'+t[0]+'" data-l="'+t[3]+'"'+(on?' checked':'')+'>'+t[2]+'</label>'}).join('')+'</div>'}
+  cur.setDate(cur.getDate()+1);if(fmt(cur)>'2026-11-14')break}
+ document.getElementById('cal').innerHTML=c}
+function bar(t,f){return '<div><div class="mut">'+t+'</div><div class="bar"><i style="width:'+Math.min(100,Math.round(f*100))+'%"></i></div></div>'}
+document.addEventListener('change',function(e){var k=e.target.getAttribute&&e.target.getAttribute('data-k');if(!k)return;
+ if(e.target.checked)st.done[k]=k.slice(-1)==='s'?e.target.getAttribute('data-l'):true;else delete st.done[k];save();render()});
+document.getElementById('reset').onclick=function(){if(confirm('確定清除所有勾選紀錄？')){st.done={};save();render()}};
+render();initSync();
+</script>
+</body>
+</html>
