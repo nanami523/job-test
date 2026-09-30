@@ -79,15 +79,16 @@ var wt=null,busy=false,dirty=false;
 function pin(){try{return localStorage.getItem('examplan_pin')||''}catch(e){return''}}
 function api(m,body){return fetch('/api/progress',{method:m,headers:{'Content-Type':'application/json','x-pin':pin()},body:body?JSON.stringify(body):undefined}).then(function(r){
  if(r.status===401){var p=prompt('請輸入密碼');if(p===null)throw 0;try{localStorage.setItem('examplan_pin',p)}catch(e){}return api(m,body)}
- if(!r.ok)throw 0;return r.json()})}
+ if(!r.ok)throw r.status;return r.json()})}
 function push(){dirty=true;clearTimeout(wt);wt=setTimeout(flush,400)}
+function em(e){return '連線失敗'+(typeof e==='number'?'（'+e+'）':'')+'，僅存本機，稍後重試'}
 function flush(){if(busy||!dirty)return;busy=true;dirty=false;
- api('PUT',{done:st.done}).then(function(){sync('已同步 ☁️')}).catch(function(){sync('同步失敗，僅存本機')}).then(function(){busy=false;if(dirty)flush()})}
+ api('PUT',{done:st.done}).then(function(){busy=false;sync('已同步 ☁️');if(dirty)flush()},function(e){busy=false;dirty=true;sync(em(e));setTimeout(flush,8000)})}
 function save(){try{localStorage.setItem(SK,JSON.stringify(st))}catch(e){}push()}
 function pull(){if(dirty||busy)return;api('GET').then(function(d){
  if(d.empty){if(Object.keys(st.done).length)push();else sync('已同步 ☁️');return}
  if(JSON.stringify(d.done)!==JSON.stringify(st.done)){st.done=d.done;try{localStorage.setItem(SK,JSON.stringify(st))}catch(e){}render()}
- sync('已同步 ☁️')}).catch(function(){sync('連線失敗，僅存本機')})}
+ sync('已同步 ☁️')}).catch(function(e){sync(em(e));setTimeout(pull,8000)})}
 function initSync(){pull();setInterval(pull,20000);document.addEventListener('visibilitychange',function(){if(!document.hidden)pull()})}
 function short(l){return l.replace('年第','').replace('梯','')}
 function calc(){var used={};days.forEach(function(x){var v=st.done[x.d+'|s'];if(v)used[v]=1});
